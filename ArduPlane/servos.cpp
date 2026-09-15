@@ -825,6 +825,7 @@ void Plane::force_flare(void)
   Finally servos_output() is called to push the final PWM values
   for output channels
 */
+
 void Plane::set_servos(void)
 {
     // start with output corked. the cork is released when we run
@@ -927,6 +928,7 @@ void Plane::set_servos(void)
 
     // run output mixer and send values to the hal for output
     servos_output();
+    //  apply_servo_limit_test();
 }
 
 /*
@@ -1020,6 +1022,8 @@ void Plane::servos_output(void)
     }
 
     SRV_Channels::calc_pwm();
+
+    apply_servo_mods();
 
     SRV_Channels::output_ch_all();
 
@@ -1121,4 +1125,194 @@ void Plane::servos_auto_trim(void)
         g2.servo_channels.save_trim();
     }
     
+}
+
+
+// void Plane::apply_servo_limit_test(void)
+// {
+//     // 1. 读取开关 RC 通道
+//     RC_Channel *sw_ch = RC_Channels::rc_channel(4);
+//     if (sw_ch == nullptr) {
+//         return;
+//     }
+//     const uint16_t sw_pwm = sw_ch->get_radio_in();
+
+//     // gcs().send_text(MAV_SEVERITY_INFO,
+//     //             "RC PWM=%u", sw_pwm);
+//     // 开关不打开 → 不处理，保持原飞控输出
+//     if (sw_pwm < 1500) {
+//         return;
+//     }
+
+//     // 2. 找到限幅舵机这个功能对应的物理通道 index（0 开始）
+//     int8_t chan = 0;
+//     if (chan < 0) {
+//         return;   // 没有就直接退出
+//     }
+
+//     // 3. 读取当前该通道的 PWM（飞控已经算好的结果）
+//     uint16_t pwm ;
+     
+//     if (!SRV_Channels::get_output_pwm(SRV_Channel::k_aileron, pwm)) {
+//         // 如果通道非法或没输出，也不处理
+//         return;
+//     }
+
+//     gcs().send_text(MAV_SEVERITY_INFO,
+//                 "Limit PWM=%u", pwm);
+
+//     // 4. 只做限幅，不改中位
+//     uint16_t limited = pwm;
+
+//     if (limited < 1475) {
+//         limited = 1475;
+//     } else if (limited > 1525) {
+//         limited = 1525;
+//     }
+
+//     // 5. 写回到该舵机通道
+//     SRV_Channels::set_output_pwm(SRV_Channel::k_aileron, limited);
+// }
+
+void Plane::apply_servo_op(SRV_Channel::Aux_servo_function_t func,
+                           int8_t op_type,
+                           int16_t min_pwm,
+                           int16_t max_pwm,
+                           int16_t offset_pwm,
+                           int16_t lock_pwm)
+{
+    // 是否允许注入故障
+    if (op_type == SERVO_OP_NONE) {
+        return;
+    }
+
+    uint16_t pwm;
+    if (!SRV_Channels::get_output_pwm(func, pwm)) {
+        return;
+    }
+
+    uint16_t new_pwm = pwm;
+
+    SRV_Channel *ch = SRV_Channels::get_channel_for(func);
+    uint16_t ch_min = ch->get_output_min();   
+    uint16_t ch_max = ch->get_output_max();   
+
+    switch (op_type) {
+
+    case SERVO_OP_LIMIT:
+        if (min_pwm > 0 && new_pwm < (uint16_t)min_pwm) {
+            new_pwm = (uint16_t)min_pwm;
+        }
+        if (max_pwm > 0 && new_pwm > (uint16_t)max_pwm) {
+            new_pwm = (uint16_t)max_pwm;
+        }
+        break;
+
+    case SERVO_OP_OFFSET: {
+        int32_t tmp = (int32_t)new_pwm + (int32_t)offset_pwm;
+        if (tmp < ch_min) tmp = ch_min;
+        if (tmp > ch_max) tmp = ch_max;
+        new_pwm = (uint16_t)tmp;
+        break;
+    }
+
+    case SERVO_OP_LOCK:
+        if (lock_pwm > ch_min && lock_pwm < ch_max) {
+            new_pwm = lock_pwm;
+        }
+        break;
+    }
+
+    // 写入所有该功能的通道
+    SRV_Channels::set_output_pwm(func, new_pwm);
+
+    // 发送信息
+    if (new_pwm != pwm) {   // 生效了才提示
+        static uint32_t last_msg_ms_ail = 0;
+        static uint32_t last_msg_ms_ele = 0;
+        static uint32_t last_msg_ms_rud = 0;
+
+        uint32_t now = AP_HAL::millis();
+        uint32_t *last_msg = nullptr;
+        const char *name = nullptr;
+
+        // 根据舵面映射对应的计时器和名称
+        switch (func) {
+        case SRV_Channel::k_aileron:
+            last_msg = &last_msg_ms_ail;
+            name = "Aileron";
+            break;
+        case SRV_Channel::k_elevator:
+            last_msg = &last_msg_ms_ele;
+            name = "Elevator";
+            break;
+        case SRV_Channel::k_rudder:
+            last_msg = &last_msg_ms_rud;
+            name = "Rudder";
+            break;
+        default:
+            break;
+        }
+
+        // 若非三大舵面，则不提示
+        if (last_msg && name) {
+            if (now - *last_msg > 1000) {   // 1 秒一次
+                *last_msg = now;
+
+                gcs().send_text(MAV_SEVERITY_ALERT,
+                                "%s fault type %d active PWM (%u->%u)",
+                                name, op_type,
+                                (unsigned)pwm, (unsigned)new_pwm);
+            }
+        }
+    }
+}
+
+void Plane::apply_servo_mods()
+{
+    if (!g.servo_mod_enable)
+    {
+        return;
+    }
+
+    // 读取 RC 开关
+    int8_t en_ch = g.servo_mod_en_ch;
+    
+    if (en_ch > 0) {
+        RC_Channel *sw = RC_Channels::rc_channel(en_ch - 1);
+        if (sw == nullptr) {
+            return;
+        }
+
+        uint16_t sw_pwm = sw->get_radio_in();
+
+        // 开关关闭 → 不处理任何舵面
+        if (sw_pwm < g.servo_mod_switch_pwm) {
+            return;
+        }
+    }
+
+    // 副翼
+    apply_servo_op(SRV_Channel::k_aileron,
+                   g.servo_mod_ail_type,
+                   g.servo_mod_ail_min,
+                   g.servo_mod_ail_max,
+                   g.servo_mod_ail_offset,
+                   g.servo_mod_ail_lock);
+
+    // 升降
+    apply_servo_op(SRV_Channel::k_elevator,
+                   g.servo_mod_ele_type,
+                   g.servo_mod_ele_min,
+                   g.servo_mod_ele_max,
+                   g.servo_mod_ele_offset,
+                   g.servo_mod_ele_lock);
+
+    // 方向
+    apply_servo_op(SRV_Channel::k_rudder,
+                   g.servo_mod_rud_type,
+                   g.servo_mod_rud_min,
+                   g.servo_mod_rud_max,
+                   g.servo_mod_rud_offset,
+                   g.servo_mod_rud_lock);
 }

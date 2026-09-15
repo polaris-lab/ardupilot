@@ -1,8 +1,17 @@
+@echo off
+
+REM === 设置你的 autotest 目录 ===
 set AUTOTESTDIR="%~dp0\aircraft"
 
-FOR /F "delims=" %%D in ('dir /b "\Program Files"\FlightGear*') DO set FGDIR=%%D
-echo "Using FlightGear %FGDIR%"
-cd "\Program Files\%FGDIR%\bin"
+REM === 自动从 D 盘搜索 FlightGear 3.x.x 目录 ===
+FOR /F "delims=" %%D in ('dir "D:\FlightGear*" /b /ad') DO set FGDIR=%%D
+
+echo Using FlightGear "%FGDIR%"
+
+REM === 切换到 FG 的 bin 目录（注意：必须是 D 盘，而不是 C:\Program Files） ===
+cd /d "D:\%FGDIR%\bin"
+
+REM === 启动 FlightGear（你的参数完全保留） ===
 fgfs ^
     --native-fdm=socket,in,10,,5503,udp ^
     --fdm=external ^
@@ -22,4 +31,5 @@ fgfs ^
     --disable-specular-highlight ^
     --disable-anti-alias-hud ^
     --wind=0@0
+
 pause

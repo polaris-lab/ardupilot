@@ -21,6 +21,8 @@
 #include <AP_AHRS/AP_AHRS.h>
 #include <AP_Scheduler/AP_Scheduler.h>
 #include <GCS_MAVLink/GCS.h>
+#include <RC_Channel/RC_Channel.h>
+
 
 extern const AP_HAL::HAL& hal;
 
@@ -226,6 +228,41 @@ float AP_PitchController::_get_rate_out(float desired_rate, float scaler, bool d
 
     // sum components
     float out = pinfo.FF + pinfo.P + pinfo.I + pinfo.D + pinfo.DFF;
+
+    // static uint32_t last_message_time_pitch = 0;  // 上次发送消息的时间
+    // const unsigned long message_interval = 1000; // 设置1秒的间隔
+    // const int en_ch = 6;
+
+    // if (en_ch > 0) {
+    //     RC_Channel *sw = RC_Channels::rc_channel(en_ch - 1);
+
+    //     uint16_t sw_pwm = sw->get_radio_in();
+
+    //     // 开关打开 → 容错控制
+    //     if (sw_pwm > 1500) {
+    //         float pan = 1.0f;
+    //         float angle_err_deg_fault = angle_err_deg;
+
+    //         // 取绝对值
+    //         if (angle_err_deg_fault < 0) {
+    //             angle_err_deg_fault = -angle_err_deg_fault;
+    //             pan = -1.0f;
+    //         }
+
+    //         // 输出加上偏置
+    //         out += -(- 0.1 * safe_sqrt(angle_err_deg_fault) * pan - 0.01 * angle_err_deg_fault * angle_err_deg_fault * pan);
+
+    //         // 获取当前时间（毫秒）
+    //         uint32_t current_time = AP_HAL::millis();
+
+    //         // 如果距离上次发送的时间超过1秒，发送消息
+    //         if (current_time - last_message_time_pitch >= message_interval) {
+    //             gcs().send_text(MAV_SEVERITY_ALERT, "PITCH FTC Appear");
+    //             last_message_time_pitch = current_time;  // 更新上次发送消息的时间
+    //         }
+    //     }
+    // }
+
     if (ground_mode) {
         // when on ground suppress D and half P term to prevent oscillations
         out -= pinfo.D + 0.5*pinfo.P;
