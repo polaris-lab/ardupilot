@@ -362,6 +362,38 @@ public:
 
         k_param_pullup = 270,
         k_param_quicktune,
+
+        k_param_servo_mod_enable,
+        k_param_servo_mod_en_ch,
+        k_param_servo_mod_switch_pwm,
+        k_param_servo_mod_ail_type,
+        k_param_servo_mod_ail_min,
+        k_param_servo_mod_ail_max,
+        k_param_servo_mod_ail_offset,
+        k_param_servo_mod_ail_lock,
+        k_param_servo_mod_ail_efficiency,
+        k_param_servo_mod_ele_type,
+        k_param_servo_mod_ele_min,
+        k_param_servo_mod_ele_max,
+        k_param_servo_mod_ele_offset,
+        k_param_servo_mod_ele_lock,
+        k_param_servo_mod_ele_efficiency,
+        k_param_servo_mod_rud_type,
+        k_param_servo_mod_rud_min,
+        k_param_servo_mod_rud_max,
+        k_param_servo_mod_rud_offset,
+        k_param_servo_mod_rud_lock,
+        k_param_servo_mod_rud_efficiency,
+        k_param_sen_roll_enable,
+        k_param_sen_roll_bias,
+        k_param_sen_pitch_enable,
+        k_param_sen_pitch_bias,
+        k_param_servo_mod_ail_drift,
+        k_param_servo_mod_ail_drift_time,
+        k_param_servo_mod_ele_drift,
+        k_param_servo_mod_ele_drift_time,
+        k_param_servo_mod_rud_drift,
+        k_param_servo_mod_rud_drift_time,
     };
 
     AP_Int16 format_version;
@@ -444,6 +476,39 @@ public:
     AP_Float RTL_altitude;
     AP_Float pitch_trim;
     AP_Float cruise_alt_floor;
+
+    // 注入故障
+    AP_Int8  servo_mod_enable;
+
+    AP_Int8  servo_mod_en_ch;
+    AP_Int16 servo_mod_switch_pwm;
+
+    AP_Int8  servo_mod_ail_type;
+    AP_Int16 servo_mod_ail_min;
+    AP_Int16 servo_mod_ail_max;
+    AP_Int16 servo_mod_ail_offset;
+    AP_Int16 servo_mod_ail_lock;
+    AP_Int16 servo_mod_ail_efficiency;
+
+    AP_Int8  servo_mod_ele_type;
+    AP_Int16 servo_mod_ele_min;
+    AP_Int16 servo_mod_ele_max;
+    AP_Int16 servo_mod_ele_offset;
+    AP_Int16 servo_mod_ele_lock;
+    AP_Int16 servo_mod_ele_efficiency;
+
+    AP_Int8  servo_mod_rud_type;
+    AP_Int16 servo_mod_rud_min;
+    AP_Int16 servo_mod_rud_max;
+    AP_Int16 servo_mod_rud_offset;
+    AP_Int16 servo_mod_rud_lock;
+    AP_Int16 servo_mod_rud_efficiency;
+    AP_Int16 servo_mod_ail_drift;
+    AP_Float servo_mod_ail_drift_time;
+    AP_Int16 servo_mod_ele_drift;
+    AP_Float servo_mod_ele_drift_time;
+    AP_Int16 servo_mod_rud_drift;
+    AP_Float servo_mod_rud_drift_time;
 
     AP_Int8 flap_1_percent;
     AP_Int8 flap_1_speed;
@@ -529,6 +594,26 @@ public:
 #if AC_PRECLAND_ENABLED
     AC_PrecLand precland;
 #endif
+
+    // //投弹参数
+    // AP_Int16 drop_ch;      // 输出通道号（1..16），传给 do_set_servo 的“Ser No”
+    // AP_Int16 drop_open_pwm;     // 舵机打开 PWM (us)
+    // AP_Int16 drop_clock_pwm;    // 舵机关闭/回锁 PWM (us)
+
+    // // 触发阈值
+    // AP_Float drop_r;            // 沿线容差 r_tol（m），|dist_along - lead| ≤ r
+    // AP_Float drop_xte_max;      // 横向走廊 (m)，cross_track_err ≤ xte_max
+    // AP_Float drop_k_fall;       // 下落时间经验系数，补偿阻力/伞 (1.05~1.2起步)
+
+    // // 目标点（度）
+    // AP_Int32 target_lat;   // 目标纬度 (deg)
+    // AP_Int32 target_lng;   // 目标经度 (deg)
+
+    // // 高度、角度限制
+    // AP_Float drop_height;      // 最小高度限制 (m)
+  
+
+
 
     // crow flaps weighting
     AP_Int8 crow_flap_weight_outer;

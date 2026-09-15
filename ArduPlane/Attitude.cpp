@@ -154,6 +154,28 @@ float Plane::stabilize_roll_get_roll_out()
     if (control_mode == &mode_stabilize && channel_roll->get_control_in() != 0) {
         disable_integrator = true;
     }
+
+    //  // 读取 RC 开关
+    // int8_t en_ch = g.servo_mod_en_ch;
+    // RC_Channel *sw = RC_Channels::rc_channel(en_ch - 1);
+    // uint16_t sw_pwm = sw->get_radio_in();
+
+    // if (sw_pwm > g.servo_mod_switch_pwm) {
+    //     if(g.sen_roll_enable)
+    //     {
+    //         uint32_t now = AP_HAL::millis();
+    //         static uint32_t roll_msg_last;
+    //         int16_t bias = g.sen_roll_bias;
+            
+    //         if (now - roll_msg_last > 1000) {   // 1 秒一次
+    //             roll_msg_last = now;
+    //             gcs().send_text(MAV_SEVERITY_ALERT,"sensor roll bias: %d",bias);
+    //         }
+    //         return rollController.get_servo_out(nav_roll_cd - (ahrs.roll_sensor + bias), speed_scaler, disable_integrator,
+    //                                         ground_mode && !(plane.flight_option_enabled(FlightOptions::DISABLE_GROUND_PID_SUPPRESSION)));
+    //     }
+    //  }
+
     return rollController.get_servo_out(nav_roll_cd - ahrs.roll_sensor, speed_scaler, disable_integrator,
                                         ground_mode && !(plane.flight_option_enabled(FlightOptions::DISABLE_GROUND_PID_SUPPRESSION)));
 }
@@ -226,6 +248,28 @@ float Plane::stabilize_pitch_get_pitch_out()
         throttle_at_zero()) {
         demanded_pitch = landing.get_pitch_cd();
     }
+
+    //  // 读取 RC 开关
+    // int8_t en_ch = g.servo_mod_en_ch;
+    // RC_Channel *sw = RC_Channels::rc_channel(en_ch - 1);
+    // uint16_t sw_pwm = sw->get_radio_in();
+
+    // if (sw_pwm > g.servo_mod_switch_pwm) {
+    //     if(g.sen_pitch_enable)
+    //     {
+    //         int16_t bias = g.sen_pitch_bias;
+    //         uint32_t now = AP_HAL::millis();
+    //         static uint32_t pitch_msg_last;
+
+    //         if (now - pitch_msg_last > 1000) {   // 1 秒一次
+    //             pitch_msg_last = now;
+    //             gcs().send_text(MAV_SEVERITY_ALERT,"sensor pitch bias: %d",bias);
+    //         }
+
+    //         return pitchController.get_servo_out(demanded_pitch - (ahrs.pitch_sensor + bias), speed_scaler, disable_integrator,
+    //                                         ground_mode && !(plane.flight_option_enabled(FlightOptions::DISABLE_GROUND_PID_SUPPRESSION)));
+    //     }
+    //  }
 
     return pitchController.get_servo_out(demanded_pitch - ahrs.pitch_sensor, speed_scaler, disable_integrator,
                                          ground_mode && !(plane.flight_option_enabled(FlightOptions::DISABLE_GROUND_PID_SUPPRESSION)));

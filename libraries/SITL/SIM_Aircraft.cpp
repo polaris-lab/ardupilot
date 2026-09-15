@@ -883,6 +883,176 @@ void Aircraft::update_wind(const struct sitl_input &input)
     wind_ef = -wind_ef;
 }
 
+// void Aircraft::update_wind(const struct sitl_input &input)
+// {
+//     /*
+//      * Custom wind model for fault diagnosis experiments.
+//      *
+//      * Coordinate convention:
+//      *   wind_ef is the wind vector in earth frame.
+//      *   x: North direction
+//      *   y: East direction
+//      *   z: Down direction
+//      *
+//      * Note:
+//      *   The original ArduPilot code negates wind_ef at the end because
+//      *   AHRS expects wind with the opposite sense. We keep the same rule.
+//      */
+
+//     const bool use_custom_wind_model = true;
+
+//     if (use_custom_wind_model) {
+//     const float t = time_now_us * 1.0e-6f;
+
+//     /*
+//      * Time-varying horizontal wind.
+//      */
+//     const float wind_speed =
+//         3.0f + 0.5f * sinf(0.08f * t);
+
+//     const float wind_dir_deg =
+//         80.0f + 45.0f * sinf(0.07f * t);
+
+//     const float wind_dir_rad = radians(wind_dir_deg);
+
+//     /*
+//      * Deterministic gust components.
+//      */
+//     const float gust_north =
+//         0.20f * sinf(0.70f * t)
+//         + 0.10f * sinf(1.70f * t);
+
+//     const float gust_east =
+//         0.20f * sinf(0.50f * t + 1.2f)
+//         + 0.10f * sinf(1.30f * t + 0.4f);
+
+//     const float gust_down =
+//         0.05f * sinf(0.90f * t + 0.8f);
+
+//     /*
+//      * Physical wind components before ArduPilot sign convention.
+//      *
+//      * North-East-Down frame:
+//      *   wind_north: North component, m/s
+//      *   wind_east : East component, m/s
+//      *   wind_down : Down component, m/s
+//      */
+//     const float wind_north =
+//         cosf(wind_dir_rad) * wind_speed + gust_north;
+
+//     const float wind_east =
+//         sinf(wind_dir_rad) * wind_speed + gust_east;
+
+//     float wind_down =
+//         gust_down;
+
+//     /*
+//      * Optional local updraft.
+//      */
+//     const float local_updraft =
+//         get_local_updraft(position + home.get_distance_NED_double(origin));
+
+//     wind_down += local_updraft;
+
+//     /*
+//      * Construct wind vector in earth frame.
+//      * This is the physical wind before sign inversion.
+//      */
+//     wind_ef = Vector3f(
+//         wind_north,
+//         wind_east,
+//         wind_down
+//     );
+
+//     /*
+//      * Print current wind every 5 seconds.
+//      */
+//     /*
+//  * Print current actual horizontal wind speed and direction every 5 seconds.
+//  */
+//     static uint64_t last_wind_print_us = 0;
+
+//     if (last_wind_print_us == 0 ||
+//         time_now_us - last_wind_print_us >= 5000000ULL) {
+
+//         last_wind_print_us = time_now_us;
+
+//         /*
+//         * Actual horizontal wind after adding gust components.
+//         * This is before the final sign inversion.
+//         */
+//         const float actual_wind_speed =
+//             sqrtf(wind_north * wind_north + wind_east * wind_east);
+
+//         float actual_wind_dir_deg =
+//             degrees(atan2f(wind_east, wind_north));
+
+//         /*
+//         * Convert direction to [0, 360) deg.
+//         */
+//         if (actual_wind_dir_deg < 0.0f) {
+//             actual_wind_dir_deg += 360.0f;
+//         }
+
+//         GCS_SEND_TEXT(
+//             MAV_SEVERITY_INFO,
+//             "Wind V=%.2f m/s Dir=%.1f deg",
+//             (double)actual_wind_speed,
+//             (double)actual_wind_dir_deg
+//         );
+//     }
+
+//     /*
+//      * Keep the original ArduPilot convention.
+//      * The AHRS wants wind with opposite sense.
+//      */
+//     wind_ef = -wind_ef;
+
+//     return;
+//     }
+
+//     /*
+//      * Original ArduPilot wind model.
+//      * Keep this part so you can easily switch back by setting
+//      * use_custom_wind_model = false.
+//      */
+
+//     wind_ef = Vector3f(
+//         cosf(radians(input.wind.direction)) * cosf(radians(input.wind.dir_z)),
+//         sinf(radians(input.wind.direction)) * cosf(radians(input.wind.dir_z)),
+//         sinf(radians(input.wind.dir_z))
+//     ) * input.wind.speed;
+
+//     wind_ef.z += get_local_updraft(position + home.get_distance_NED_double(origin));
+
+//     const float wind_turb = input.wind.turbulence * 10.0f;
+//     const float iir_coef = 0.98f;
+
+//     if (wind_turb > 0 && !on_ground()) {
+//         turbulence_azimuth = turbulence_azimuth + (2 * rand());
+
+//         turbulence_horizontal_speed =
+//             static_cast<float>(
+//                 turbulence_horizontal_speed * iir_coef
+//                 + wind_turb * rand_normal(0, 1) * (1 - iir_coef)
+//             );
+
+//         turbulence_vertical_speed =
+//             static_cast<float>(
+//                 turbulence_vertical_speed * iir_coef
+//                 + wind_turb * rand_normal(0, 1) * (1 - iir_coef)
+//             );
+
+//         wind_ef += Vector3f(
+//             cosf(radians(turbulence_azimuth)) * turbulence_horizontal_speed,
+//             sinf(radians(turbulence_azimuth)) * turbulence_horizontal_speed,
+//             turbulence_vertical_speed
+//         );
+//     }
+
+//     wind_ef = -wind_ef;
+// }
+
 /*
   smooth sensors for kinematic consistancy when we interact with the ground
  */

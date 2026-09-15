@@ -93,6 +93,8 @@ const AP_Scheduler::Task Plane::scheduler_tasks[] = {
     SCHED_TASK(one_second_loop,         1,    400,  90),
     SCHED_TASK(three_hz_loop,           3,     75,  93),
     SCHED_TASK(check_long_failsafe,     3,    400,  96),
+    // SCHED_TASK(Auto_Drop,               3,   400,  97),
+    //SCHED_TASK(Manual_Drop,             3,    400,  98),
 #if AP_RPM_ENABLED
     SCHED_TASK_CLASS(AP_RPM,           &plane.rpm_sensor,     update,     10, 100,  99),
 #endif
@@ -398,6 +400,116 @@ void Plane::three_hz_loop()
     fence_check();
 #endif
 }
+
+// void Plane::Auto_Drop(void)
+// {
+//     // --- 常量与门限 ---
+//     const float tar_g = 9.80665f;
+//     const float r_tol_m     = g2.drop_r;           // 沿线允许误差窗口（米）
+//     const float xte_max_m   = (g2.drop_xte_max > 0 ? g2.drop_xte_max : r_tol_m);  // 横向走廊（米）
+//     const float min_height  = g2.drop_height;          // 最小高度限制
+//     const float nu_cap_rad  = M_PI / 6.0f;    // 速度-目标夹角上限
+//     const uint16_t pwm_open  = g2.drop_open_pwm;
+//     const uint16_t pwm_close = g2.drop_clock_pwm;
+
+//     // --- 位置/目标 ---
+//     Location cur;
+//     if (!ahrs.get_location(cur)) {            // 返回bool，需判真
+//         return;
+//     }
+//     Location aim;
+//     aim.lat = g2.target_lat;   // 度×1e7
+//     aim.lng = g2.target_lng;   // 度×1e7
+//     aim.alt = cur.alt;                         // 水平几何用不到 alt
+
+//     // 从当前 -> 目标 的 NE 向量（米）
+//     const Vector2f curtoaim = cur.get_distance_NE(aim);    
+//     const float curtoaim_distance = curtoaim.length();
+//     if (curtoaim_distance < 1.0f) { return; }   //距离太小，不用投弹
+
+//     // --- 地速/速度单位向量 ---
+//     const Vector2f v_ground = ahrs.groundspeed_vector();  // 可换 get_velocity_NED 取 NE
+//     const float v_groundspeed = v_ground.length();
+//     if (v_groundspeed < 0.5f) { return; }       //速度太小，不投弹
+//     const Vector2f v_ground_hat = v_ground / v_groundspeed;     //地速的单位向量
+
+//     // 几何分解：沿线投影/横向偏差（相对“速度朝向”）
+//     const float dis_alongtrack = curtoaim * v_ground_hat;                  // 沿速度方向距离
+//     const float dis_crosstrack = fabsf(curtoaim % v_ground_hat);           // 垂直速度方向的距离  
+
+//     // 速度方向与“指向目标”的夹角（更稳用 atan2）
+//     const float dot_AV = curtoaim * v_ground;
+//     const float crs_AV = curtoaim % v_ground;
+//     const float theta = atan2f(crs_AV, dot_AV);
+
+//     // 走廊角：把半径约束(r_tol)转为角度，并限制到 nu_cap_rad
+//     float s = r_tol_m / curtoaim_distance;
+//     s = fminf(fmaxf(s, -1.0f), 1.0f);
+//     float corridor = asinf(s);
+//     corridor = fminf(corridor, nu_cap_rad);
+
+//     // 高度（相对HOME，单位换算：cm->m）---
+//     const float cur_height = (cur.alt - home.alt) * 0.01f;   // Location.alt 为 cm（注意单位）
+//     if (cur_height < min_height) { return; }                 // 可按需改成 get_velocity_NED 推算下落时变
+
+//     // --- 下落时间与沿线提前量 D ---
+//     // 基础自由落体近似（可乘经验系数拟合阻力/伞降）
+//     Vector3f velNED;    //机体的NED速度（North, East, Down，单位 m/s）
+//     const bool vel_ok = ahrs.get_velocity_NED(velNED);  // bool 返回值
+//     const float vz_up = (vel_ok ? -velNED.z : 0.0f);    // NED 的 Down 为正，这里取“向上为正”
+//     const float disc = fmaxf(vz_up * vz_up + 2.0f * tar_g * cur_height, 0.0f);
+//     float t_fall = (vz_up + sqrtf(disc)) / tar_g;           // 落地时间
+//     t_fall *= (g2.drop_k_fall > 0 ? g2.drop_k_fall : 1.0f);       // 经验系数，默认1
+
+//     const float lead_distance = v_groundspeed * t_fall;             // 需要的沿线提前距离（米）
+
+//     // --- 舵机“一次性触发 + 定时回锁” ---
+//     static bool ifdropped = false;
+//     static uint32_t close_deadline_ms = 0;
+//     static uint32_t open_ms = 1000;
+//     // 到时回锁
+//     if (ifdropped && AP_HAL::millis() > close_deadline_ms) {
+//         ServoRelayEvents.do_set_servo(g2.drop_ch, pwm_close);
+//         ifdropped = false;
+//         gcs().send_text(MAV_SEVERITY_INFO, "clock");
+//     }
+
+//     // 触发条件：在机头前方、横向走廊内、角度走廊内、沿线距离命中
+//     if (!ifdropped &&
+//         dis_alongtrack >= 0.0f &&
+//         dis_crosstrack <= xte_max_m &&
+//         fabsf(theta) <= corridor &&
+//         fabsf(dis_alongtrack - lead_distance) <= r_tol_m)
+//     {
+//         ServoRelayEvents.do_set_servo(g2.drop_ch, pwm_open);
+//         close_deadline_ms = AP_HAL::millis() + open_ms; // 400ms默认
+//         ifdropped = true;
+
+//         gcs().send_text(
+//             MAV_SEVERITY_CRITICAL,
+//             "drop");
+//     }
+// }
+
+// void Plane::Manual_Drop(void)
+// {     
+//     // 获取投弹通道的 PWM 值
+//     uint16_t pwm = rc_channels[g2.drop_ch].get_pwm();  // 通过索引直接访问 PWM
+
+//     // 判断是否输入手动投弹信号
+//     if (abs(pwm - g2.drop_open_pwm) < 100) { // 输入手动投弹信号
+//         ServoRelayEvents.do_set_servo(g2.drop_ch, g2.drop_open_pwm); // 投弹
+//         gcs().send_text(MAV_SEVERITY_CRITICAL, "Manual drop");
+//         flag_manual = 1;  // 激活手动回锁保险
+//     }
+
+//     // 判断是否输入手动回锁信号
+//     if (abs(pwm - g2.drop_clock_pwm) < 100 && flag_manual == 1) { // 输入手动回锁信号
+//         ServoRelayEvents.do_set_servo(g2.drop_ch, g2.drop_clock_pwm); // 回锁
+//         flag_manual = 0;  // 解除手动回锁保险
+//         gcs().send_text(MAV_SEVERITY_INFO, "clock");
+//     }
+// }
 
 void Plane::compass_save()
 {

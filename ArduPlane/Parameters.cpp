@@ -635,6 +635,246 @@ const AP_Param::Info Plane::var_info[] = {
     // @User: Standard
     GSCALAR(mixing_offset,          "MIXING_OFFSET",  0),
 
+    // 故障注入模块
+
+    // @Param: SMOD_ENABLE
+    // @DisplayName: Servo Fault Injection Enable
+    // @Description: 是否启用舵面故障注入模块。0=禁用，1=启用。
+    // @Values: 0:Disabled,1:Enabled
+    // @User: Standard
+    GSCALAR(servo_mod_enable, "SMOD_ENABLE", 0),
+
+    // @Param: SMOD_EN_CH
+    // @DisplayName: Servo Fault Injection RC Switch Channel
+    // @Description: 控制故障注入启停的 RC 通道号（0=不使用 RC 开关，其他值=RC 通道编号）。当该通道 PWM 高于 SMOD_SW_PWM 时，故障注入生效。
+    // @Range: 0 16
+    // @User: Standard
+    GSCALAR(servo_mod_en_ch, "SMOD_EN_CH", 0),
+
+    // @Param: SMOD_SW_PWM
+    // @DisplayName: Fault Injection Activate Threshold PWM
+    // @Description: 当 RC 开关通道 PWM 高于该阈值时，启用舵面故障注入（典型值为1500）。仅当 SMOD_EN_CH>0 时生效。
+    // @Range: 800 2200
+    // @User: Standard
+    GSCALAR(servo_mod_switch_pwm, "SMOD_SW_PWM", 1500),
+
+    // ======================= 副翼（AILERON） =======================
+
+    // @Param: SMOD_AIL_TYPE
+    // @DisplayName: Aileron Fault Injection Type
+    // @Description: 副翼故障类型。0=无；1=限幅；2=偏置；3=锁定；4=效率降低；5=漂移。
+    // @Values: 0:None,1:Limit,2:Offset,3:Lock,4:Efficiency,5:Drift
+    // @User: Standard
+    GSCALAR(servo_mod_ail_type, "SMOD_AIL_TYPE", 0),
+
+    // @Param: SMOD_AIL_MIN
+    // @DisplayName: Aileron Fault Min PWM
+    // @Description: 副翼限幅下限。0=自动使用 SERVOn_MIN。仅当故障类型=限幅时使用。
+    // @Range: 0 2200
+    // @User: Standard
+    GSCALAR(servo_mod_ail_min, "SMOD_AIL_MIN", 0),
+
+    // @Param: SMOD_AIL_MAX
+    // @DisplayName: Aileron Fault Max PWM
+    // @Description: 副翼限幅上限。0=自动使用 SERVOn_MAX。仅当故障类型=限幅时使用。
+    // @Range: 0 2200
+    // @User: Standard
+    GSCALAR(servo_mod_ail_max, "SMOD_AIL_MAX", 0),
+
+    // @Param: SMOD_AIL_OFFSET
+    // @DisplayName: Aileron Fault Offset PWM
+    // @Description: 副翼偏置值（可为正/负），与正常 PWM 相加。仅当故障类型=偏置时使用。
+    // @Units: pwm
+    // @Range: -400 400
+    // @User: Standard
+    GSCALAR(servo_mod_ail_offset, "SMOD_AIL_OFFSET", 0),
+
+    // @Param: SMOD_AIL_LOCK
+    // @DisplayName: Aileron Lock PWM
+    // @Description: 副翼锁定 PWM 值。0=自动使用该通道 SERVOn_TRIM。仅当故障类型=锁定时使用。
+    // @Range: 1100 1900
+    // @User: Standard
+    GSCALAR(servo_mod_ail_lock, "SMOD_AIL_LOCK", 1500),
+
+    // @Param: SMOD_AIL_EFF
+    // @DisplayName: Aileron Efficiency Factor
+    // @Description: 副翼效率因子，单位为百分比。100=正常效率，50=输出偏离中位值的幅度减半，0=保持在中位 PWM。仅当故障类型=效率降低时使用。
+    // @Units: %
+    // @Range: 0 100
+    // @Increment: 1
+    // @User: Standard
+    GSCALAR(servo_mod_ail_efficiency, "SMOD_AIL_EFF", 100),
+
+    // @Param: SMOD_AIL_DRIFT
+    // @DisplayName: Aileron Drift Target Offset
+    // @Description: 副翼漂移的最终偏置，可正可负，与正常PWM相加。仅当故障类型为5时使用。
+    // @Units: pwm
+    // @Range: -400 400
+    // @User: Standard
+    GSCALAR(servo_mod_ail_drift, "SMOD_AIL_DRIFT", 0),
+
+    // @Param: SMOD_AIL_DTIME
+    // @DisplayName: Aileron Drift Duration
+    // @Description: 副翼偏置从零线性变化至目标偏置的时间，到达后保持。0表示立即到达目标。仅当故障类型为5时使用。
+    // @Units: s
+    // @Range: 0 3600
+    // @User: Standard
+    GSCALAR(servo_mod_ail_drift_time, "SMOD_AIL_DTIME", 10.0f),
+
+    // ======================= 升降舵（ELEVATOR） =======================
+
+    // @Param: SMOD_ELE_TYPE
+    // @DisplayName: Elevator Fault Injection Type
+    // @Description: 升降舵故障类型。0=无；1=限幅；2=偏置；3=锁定；4=效率降低；5=漂移。
+    // @Values: 0:None,1:Limit,2:Offset,3:Lock,4:Efficiency,5:Drift
+    // @User: Standard
+    GSCALAR(servo_mod_ele_type, "SMOD_ELE_TYPE", 0),
+
+    // @Param: SMOD_ELE_MIN
+    // @DisplayName: Elevator Fault Min PWM
+    // @Description: 升降舵限幅下限。0=自动使用 SERVOn_MIN。
+    // @Range: 0 2200
+    // @User: Standard
+    GSCALAR(servo_mod_ele_min, "SMOD_ELE_MIN", 0),
+
+    // @Param: SMOD_ELE_MAX
+    // @DisplayName: Elevator Fault Max PWM
+    // @Description: 升降舵限幅上限。0=自动使用 SERVOn_MAX。
+    // @Range: 0 2200
+    // @User: Standard
+    GSCALAR(servo_mod_ele_max, "SMOD_ELE_MAX", 0),
+
+    // @Param: SMOD_ELE_OFFSET
+    // @DisplayName: Elevator Fault Offset PWM
+    // @Description: 升降舵 PWM 偏置。
+    // @Range: -400 400
+    // @User: Standard
+    GSCALAR(servo_mod_ele_offset, "SMOD_ELE_OFFSET", 0),
+
+    // @Param: SMOD_ELE_LOCK
+    // @DisplayName: Elevator Lock PWM
+    // @Description: 升降舵锁定 PWM（0=使用 SERVOn_TRIM）。
+    // @Range: 1100 1900
+    // @User: Standard
+    GSCALAR(servo_mod_ele_lock, "SMOD_ELE_LOCK", 1500),
+
+    // @Param: SMOD_ELE_EFF
+    // @DisplayName: Elevator Efficiency Factor
+    // @Description: 升降舵效率因子，单位为百分比。100=正常效率，50=输出偏离中位值的幅度减半，0=保持在中位 PWM。仅当故障类型=效率降低时使用。
+    // @Units: %
+    // @Range: 0 100
+    // @Increment: 1
+    // @User: Standard
+    GSCALAR(servo_mod_ele_efficiency, "SMOD_ELE_EFF", 100),
+
+    // @Param: SMOD_ELE_DRIFT
+    // @DisplayName: Elevator Drift Target Offset
+    // @Description: 升降舵漂移的最终偏置，可正可负，与正常PWM相加。仅当故障类型为5时使用。
+    // @Units: pwm
+    // @Range: -400 400
+    // @User: Standard
+    GSCALAR(servo_mod_ele_drift, "SMOD_ELE_DRIFT", 0),
+
+    // @Param: SMOD_ELE_DTIME
+    // @DisplayName: Elevator Drift Duration
+    // @Description: 升降舵偏置从零线性变化至目标偏置的时间，到达后保持。0表示立即到达目标。仅当故障类型为5时使用。
+    // @Units: s
+    // @Range: 0 3600
+    // @User: Standard
+    GSCALAR(servo_mod_ele_drift_time, "SMOD_ELE_DTIME", 10.0f),
+
+    // ======================= 方向舵（RUDDER） =======================
+
+    // @Param: SMOD_RUD_TYPE
+    // @DisplayName: Rudder Fault Injection Type
+    // @Description: 方向舵故障类型。0=无；1=限幅；2=偏置；3=锁定；4=效率降低；5=漂移。
+    // @Values: 0:None,1:Limit,2:Offset,3:Lock,4:Efficiency,5:Drift
+    // @User: Standard
+    GSCALAR(servo_mod_rud_type, "SMOD_RUD_TYPE", 0),
+
+    // @Param: SMOD_RUD_MIN
+    // @DisplayName: Rudder Fault Min PWM
+    // @Description: 方向舵限幅下限。0=自动使用 SERVOn_MIN。
+    // @Range: 0 2200
+    // @User: Standard
+    GSCALAR(servo_mod_rud_min, "SMOD_RUD_MIN", 0),
+
+    // @Param: SMOD_RUD_MAX
+    // @DisplayName: Rudder Fault Max PWM
+    // @Description: 方向舵限幅上限。0=自动使用 SERVOn_MAX。
+    // @Range: 0 2200
+    // @User: Standard
+    GSCALAR(servo_mod_rud_max, "SMOD_RUD_MAX", 0),
+
+    // @Param: SMOD_RUD_OFFSET
+    // @DisplayName: Rudder Fault Offset PWM
+    // @Description: 方向舵 PWM 偏置。
+    // @Range: -400 400
+    // @User: Standard
+    GSCALAR(servo_mod_rud_offset, "SMOD_RUD_OFFSET", 0),
+
+    // @Param: SMOD_RUD_LOCK
+    // @DisplayName: Rudder Lock PWM
+    // @Description: 方向舵锁定 PWM（0=使用 SERVOn_TRIM）。
+    // @Range: 1100
+    // @User: Standard
+    GSCALAR(servo_mod_rud_lock, "SMOD_RUD_LOCK", 1500),
+
+    // @Param: SMOD_RUD_EFF
+    // @DisplayName: Rudder Efficiency Factor
+    // @Description: 方向舵效率因子，单位为百分比。100=正常效率，50=输出偏离中位值的幅度减半，0=保持在中位 PWM。仅当故障类型=效率降低时使用。
+    // @Units: %
+    // @Range: 0 100
+    // @Increment: 1
+    // @User: Standard
+    GSCALAR(servo_mod_rud_efficiency, "SMOD_RUD_EFF", 100),
+
+    // @Param: SMOD_RUD_DRIFT
+    // @DisplayName: Rudder Drift Target Offset
+    // @Description: 方向舵漂移的最终偏置，可正可负，与正常PWM相加。仅当故障类型为5时使用。
+    // @Units: pwm
+    // @Range: -400 400
+    // @User: Standard
+    GSCALAR(servo_mod_rud_drift, "SMOD_RUD_DRIFT", 0),
+
+    // @Param: SMOD_RUD_DTIME
+    // @DisplayName: Rudder Drift Duration
+    // @Description: 方向舵偏置从零线性变化至目标偏置的时间，到达后保持。0表示立即到达目标。仅当故障类型为5时使用。
+    // @Units: s
+    // @Range: 0 3600
+    // @User: Standard
+    GSCALAR(servo_mod_rud_drift_time, "SMOD_RUD_DTIME", 10.0f),
+
+    // //======================传感器故障=========================
+    // //@Param: SENSOR_ROLL_BIAS_ENABLE
+    // // @DisplayName: 是否注入故障
+    // // @Description: 是否滚转传感器注入偏差
+    // // @Range: 0
+    // // @User: Standard
+    // GSCALAR(sen_roll_enable, "SEN_ROLL_ENABLE", 0),
+
+    // // @Param: SENSOR_ROLL_BIAS
+    // // @DisplayName: angle * 100
+    // // @Description: 滚转传感器偏转角度
+    // // @Range: -500 - 500
+    // // @User: Standard
+    // GSCALAR(sen_roll_bias, "SEN_ROLL_BIAS", 0),
+
+    // //@Param: SENSOR_PITCH_BIAS_ENABLE
+    // // @DisplayName: 是否注入故障
+    // // @Description: 是否俯仰传感器注入偏差
+    // // @Range: 0
+    // // @User: Standard
+    // GSCALAR(sen_pitch_enable, "SEN_PITCH_ENABLE", 0),
+
+    // // @Param: SENSOR_PITCH_BIAS
+    // // @DisplayName: angle * 100
+    // // @Description: 俯仰传感器偏转角度
+    // // @Range: -500 - 500
+    // // @User: Standard
+    // GSCALAR(sen_pitch_bias, "SEN_PITCH_BIAS", 0),
+
+
     // @Param: DSPOILR_RUD_RATE
     // @DisplayName: Differential spoilers rudder rate
     // @Description: Sets the amount of deflection that the rudder output will apply to the differential spoilers, as a percentage. The default value of 100 results in full rudder applying full deflection. A value of 0 will result in the differential spoilers exactly following the elevons (no rudder effect).
@@ -650,6 +890,7 @@ const AP_Param::Info Plane::var_info[] = {
     // @User: Advanced
     GSCALAR(log_bitmask,            "LOG_BITMASK",    DEFAULT_LOG_BITMASK),
 
+    
     // @Param: SCALING_SPEED
     // @DisplayName: speed used for speed scaling calculations
     // @Description: Airspeed in m/s to use when calculating surface speed scaling. Note that changing this value will affect all PID values
@@ -1302,7 +1543,91 @@ const AP_Param::GroupInfo ParametersG2::var_info[] = {
     // @Path: systemid.cpp
     AP_SUBGROUPINFO(systemid, "SID", 38, ParametersG2, AP_SystemID),
 #endif
-    
+
+    // // ---- 投弹参数（通道 & PWM） ----
+
+    // // @Param: DROP_CH
+    // // @DisplayName: 投弹舵机输出通道
+    // // @Description: 通过 ServoRelayEvents.do_set_servo 触发的飞控“输出通道”编号（对应 SERVOx 中的 x）。注意这不是RC输入通道。
+    // // @Range: 1 16
+    // // @User: Standard
+    // AP_GROUPINFO("DROP_CH",      39, ParametersG2, drop_ch,        6),
+
+    // // @Param: DROP_OPEN
+    // // @DisplayName: 投弹舵机打开PWM
+    // // @Description: 触发投弹时输出到 DROP_CH 的 PWM 脉宽（微秒）。请根据机构行程调试，一般 1700–2000us。
+    // // @Units: us
+    // // @Range: 900 2100
+    // // @User: Standard
+    // AP_GROUPINFO("DROP_OPEN",    40, ParametersG2, drop_open_pwm,  1850),
+
+    // // @Param: DROP_CLOSE
+    // // @DisplayName: 投弹舵机关闭PWM
+    // // @Description: 回锁时输出到 DROP_CH 的 PWM 脉宽（微秒）。请根据机构回位点调试，一般 1000–1500us。
+    // // @Units: us
+    // // @Range: 900 2100
+    // // @User: Standard
+    // AP_GROUPINFO("DROP_CLOSE",   41, ParametersG2, drop_clock_pwm, 1200),
+
+    // // ---- 触发阈值 ----
+
+    // // @Param: DROP_R
+    // // @DisplayName: 沿线容差（米）
+    // // @Description: 与理论提前距离的允许偏差窗口。仅当 |沿速度方向的目标距离 − 理论提前量| ≤ 本值 时允许投弹。
+    // // @Units: m
+    // // @Range: 0 100
+    // // @Increment: 0.1
+    // // @User: Standard
+    // AP_GROUPINFO("DROP_R",       42, ParametersG2, drop_r,         10.0f),
+
+    // // @Param: DROP_XTE
+    // // @DisplayName: 横向走廊（米）
+    // // @Description: 相对当前速度方向的横向偏差上限（XTE）。仅当横向误差 ≤ 本值 时允许投弹。
+    // // @Units: m
+    // // @Range: 0 100
+    // // @Increment: 0.1
+    // // @User: Standard
+    // AP_GROUPINFO("DROP_XTE",     43, ParametersG2, drop_xte_max,   15.0f),
+
+    // // @Param: DROP_KFALL
+    // // @DisplayName: 落体时间经验系数
+    // // @Description: 用于补偿空气阻力/伞降导致的下落变慢。理论下落时间将乘以本系数（>1 表示更慢）。无伞起步 1.05–1.20；有伞可更大。
+    // // @Range: 0.50 3.00
+    // // @Increment: 0.01
+    // // @User: Standard
+    // AP_GROUPINFO("DROP_KFALL",   44, ParametersG2, drop_k_fall,     1.15f),
+
+    // // ---- 目标点（度） ----
+
+    // // @Param: DROP_TLAT
+    // // @DisplayName: 目标纬度（度）* 1e7
+    // // @Description: 投放目标点的纬度，单位为度（十进制度）。
+    // // @Units: deg
+    // // @Range: -90 90
+    // // @Increment: 0.000001
+    // // @User: Standard
+    // AP_GROUPINFO("DROP_TLAT",    45, ParametersG2, target_lat,      0),
+
+    // // @Param: DROP_TLON
+    // // @DisplayName: 目标经度（度）* 1e7
+    // // @Description: 投放目标点的经度，单位为度（十进制度）。
+    // // @Units: deg
+    // // @Range: -180 180
+    // // @Increment: 0.000001
+    // // @User: Standard
+    // AP_GROUPINFO("DROP_TLON",    46, ParametersG2, target_lng,      0),
+
+    // // ---- 高度限制 ----
+
+    // // @Param: DROP_HMIN
+    // // @DisplayName: 最小投弹高度（米）
+    // // @Description: 当相对Home的高度（cm→m换算）低于该值时禁止投弹。若使用地形/AGL，可按需修改代码改为基于 AGL 判据。
+    // // @Units: m
+    // // @Range: 0 500
+    // // @Increment: 1
+    // // @User: Standard
+    // AP_GROUPINFO("DROP_HMIN",    47, ParametersG2, drop_height,    20.0f),
+        
     AP_GROUPEND
 };
 

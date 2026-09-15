@@ -19,7 +19,7 @@
    You should have received a copy of the GNU General Public License
    along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-#pragma once
+#pragma once    //保证头文件只编译一次，不会重复编译
 
 ////////////////////////////////////////////////////////////////////////////////
 // Header includes
@@ -287,7 +287,7 @@ private:
     // Rally Points
     AP_Rally rally;
 #endif
-
+  
 #if AC_PRECLAND_ENABLED
     void precland_update(void);
 #endif
@@ -1091,6 +1091,8 @@ private:
 #endif
     void one_second_loop(void);
     void three_hz_loop(void);
+    //void Auto_Drop(void);
+    //void Manual_Drop(void);
 #if AP_AIRSPEED_AUTOCAL_ENABLE
     void airspeed_ratio_update(void);
 #endif
@@ -1185,6 +1187,39 @@ private:
                                 SRV_Channel::Aux_servo_function_t func1_out, SRV_Channel::Aux_servo_function_t func2_out) const;
     void flaperon_update();
     void indicate_waiting_for_rud_neutral_to_takeoff(void);
+    
+    //注入故障
+    enum ServoOpType {
+        SERVO_OP_NONE  = 0,
+        SERVO_OP_LIMIT = 1,
+        SERVO_OP_OFFSET = 2,
+        SERVO_OP_LOCK = 3,
+        SERVO_OP_EFFICIENCY = 4,
+        SERVO_OP_DRIFT = 5
+    };
+
+    struct ServoDriftState {
+        uint64_t start_ms = 0;
+        bool active = false;
+    };
+
+    ServoDriftState servo_drift_ail;
+    ServoDriftState servo_drift_ele;
+    ServoDriftState servo_drift_rud;
+
+    void apply_servo_op(SRV_Channel::Aux_servo_function_t func,
+                    int8_t op_type,
+                    int16_t min_pwm,
+                    int16_t max_pwm,
+                    int16_t offset_pwm,
+                    int16_t lock_pwm,
+                    int16_t efficiency_pct,
+                    int16_t drift_pwm,
+                    float drift_time_s,
+                    ServoDriftState &drift_state);
+
+    void reset_servo_drift_states();
+    void apply_servo_mods();
 
     // is_flying.cpp
     void update_is_flying_5Hz(void);

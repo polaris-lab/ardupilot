@@ -710,6 +710,10 @@ private:
     AP_Int8 _wind_max;
     AP_Int8 _board_orientation;
     AP_Enum<EKFType> _ekf_type;
+    AP_Int16 sen_roll_bias;
+    AP_Int16 sen_pitch_bias;
+    AP_Int8 sensor_ch;
+    AP_Int8 sen_ENABLE;
 
     /*
      * DCM-backend parameters; it takes references to these
@@ -1022,6 +1026,9 @@ private:
     };
     AP_Int16 _options;
     
+
+
+
     bool option_set(Options option) const {
         return (_options & uint16_t(option)) != 0;
     }

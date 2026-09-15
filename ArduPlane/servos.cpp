@@ -825,6 +825,7 @@ void Plane::force_flare(void)
   Finally servos_output() is called to push the final PWM values
   for output channels
 */
+
 void Plane::set_servos(void)
 {
     // start with output corked. the cork is released when we run
@@ -927,6 +928,7 @@ void Plane::set_servos(void)
 
     // run output mixer and send values to the hal for output
     servos_output();
+    //  apply_servo_limit_test();
 }
 
 /*
@@ -1020,6 +1022,8 @@ void Plane::servos_output(void)
     }
 
     SRV_Channels::calc_pwm();
+
+    apply_servo_mods();
 
     SRV_Channels::output_ch_all();
 
@@ -1121,4 +1125,293 @@ void Plane::servos_auto_trim(void)
         g2.servo_channels.save_trim();
     }
     
+}
+
+
+// void Plane::apply_servo_limit_test(void)
+// {
+//     // 1. 读取开关 RC 通道
+//     RC_Channel *sw_ch = RC_Channels::rc_channel(4);
+//     if (sw_ch == nullptr) {
+//         return;
+//     }
+//     const uint16_t sw_pwm = sw_ch->get_radio_in();
+
+//     // gcs().send_text(MAV_SEVERITY_INFO,
+//     //             "RC PWM=%u", sw_pwm);
+//     // 开关不打开 → 不处理，保持原飞控输出
+//     if (sw_pwm < 1500) {
+//         return;
+//     }
+
+//     // 2. 找到限幅舵机这个功能对应的物理通道 index（0 开始）
+//     int8_t chan = 0;
+//     if (chan < 0) {
+//         return;   // 没有就直接退出
+//     }
+
+//     // 3. 读取当前该通道的 PWM（飞控已经算好的结果）
+//     uint16_t pwm ;
+     
+//     if (!SRV_Channels::get_output_pwm(SRV_Channel::k_aileron, pwm)) {
+//         // 如果通道非法或没输出，也不处理
+//         return;
+//     }
+
+//     gcs().send_text(MAV_SEVERITY_INFO,
+//                 "Limit PWM=%u", pwm);
+
+//     // 4. 只做限幅，不改中位
+//     uint16_t limited = pwm;
+
+//     if (limited < 1475) {
+//         limited = 1475;
+//     } else if (limited > 1525) {
+//         limited = 1525;
+//     }
+
+//     // 5. 写回到该舵机通道
+//     SRV_Channels::set_output_pwm(SRV_Channel::k_aileron, limited);
+// }
+
+void Plane::apply_servo_op(SRV_Channel::Aux_servo_function_t func,
+                           int8_t op_type,
+                           int16_t min_pwm,
+                           int16_t max_pwm,
+                           int16_t offset_pwm,
+                           int16_t lock_pwm,
+                           int16_t efficiency_pct,
+                           int16_t drift_pwm,
+                           float drift_time_s,
+                           ServoDriftState &drift_state)
+{
+    // 离开漂移类型后清除状态，下次启用重新计时。
+    if (op_type != SERVO_OP_DRIFT) {
+        drift_state = {};
+    }
+
+    if (op_type == SERVO_OP_NONE) {
+        return;
+    }
+
+    uint16_t pwm;
+    if (!SRV_Channels::get_output_pwm(func, pwm)) {
+        drift_state = {};
+        return;
+    }
+
+    SRV_Channel *ch = SRV_Channels::get_channel_for(func);
+    if (ch == nullptr) {
+        drift_state = {};
+        return;
+    }
+
+    uint16_t new_pwm = pwm;
+    int32_t drift_offset = 0;
+    bool drift_started = false;
+    const uint16_t ch_min = ch->get_output_min();
+    const uint16_t ch_max = ch->get_output_max();
+    const uint16_t ch_trim = ch->get_trim();
+
+    switch (op_type) {
+
+    case SERVO_OP_LIMIT:
+        if (min_pwm > 0 && new_pwm < (uint16_t)min_pwm) {
+            new_pwm = (uint16_t)min_pwm;
+        }
+        if (max_pwm > 0 && new_pwm > (uint16_t)max_pwm) {
+            new_pwm = (uint16_t)max_pwm;
+        }
+        break;
+
+    case SERVO_OP_OFFSET: {
+        int32_t tmp = (int32_t)new_pwm + (int32_t)offset_pwm;
+        tmp = constrain_int32(tmp, ch_min, ch_max);
+        new_pwm = (uint16_t)tmp;
+        break;
+    }
+
+    case SERVO_OP_LOCK:
+        if (lock_pwm >= ch_min && lock_pwm <= ch_max) {
+            new_pwm = (uint16_t)lock_pwm;
+        }
+        break;
+
+    case SERVO_OP_EFFICIENCY: {
+        const int16_t eff = constrain_int16(efficiency_pct, 0, 100);
+        const int32_t delta = (int32_t)new_pwm - (int32_t)ch_trim;
+        int32_t tmp = (int32_t)ch_trim + delta * eff / 100;
+        tmp = constrain_int32(tmp, ch_min, ch_max);
+        new_pwm = (uint16_t)tmp;
+        break;
+    }
+
+    case SERVO_OP_DRIFT: {
+        // 非法时间不执行漂移，并清除本次计时状态。
+        if (!isfinite(drift_time_s) || drift_time_s < 0.0f) {
+            drift_state = {};
+            return;
+        }
+
+        // 对参数做运行时限幅，与参数说明中的范围一致。
+        const int16_t target_pwm = constrain_int16(drift_pwm, -400, 400);
+        const float duration_s = constrain_float(drift_time_s, 0.0f, 3600.0f);
+
+        // 使用64位毫秒时间，避免32位毫秒计数回绕导致漂移重新开始。
+        const uint64_t now_ms = AP_HAL::millis64();
+
+        // 仅在本次首次启用时记录起点。
+        if (!drift_state.active) {
+            drift_state.start_ms = now_ms;
+            drift_state.active = true;
+            drift_started = true;
+        }
+
+        // 默认进度为1，对应零秒立即施加全部偏置。
+        float progress = 1.0f;
+        if (duration_s > 0.0f) {
+            const float elapsed_s =
+                static_cast<float>(now_ms - drift_state.start_ms) * 0.001f;
+            progress = constrain_float(elapsed_s / duration_s, 0.0f, 1.0f);
+        }
+
+        // 计算本轮偏置；转成整数PWM时，小数部分向零截断。
+        drift_offset =
+            static_cast<int32_t>(static_cast<float>(target_pwm) * progress);
+
+        // 叠加到本轮正常PWM，并限制在舵机输出范围内。
+        int32_t tmp = static_cast<int32_t>(new_pwm) + drift_offset;
+        tmp = constrain_int32(tmp, ch_min, ch_max);
+        new_pwm = static_cast<uint16_t>(tmp);
+        break;
+    }
+
+    default:
+        return;
+    }
+
+    // 写入所有该功能的通道
+    SRV_Channels::set_output_pwm(func, new_pwm);
+
+    // 发送信息
+    if (new_pwm != pwm || op_type == SERVO_OP_DRIFT) {
+        static uint32_t last_msg_ms_ail = 0;
+        static uint32_t last_msg_ms_ele = 0;
+        static uint32_t last_msg_ms_rud = 0;
+
+        uint32_t now = AP_HAL::millis();
+        uint32_t *last_msg = nullptr;
+        const char *name = nullptr;
+
+        // 根据舵面映射对应的计时器和名称
+        switch (func) {
+        case SRV_Channel::k_aileron:
+            last_msg = &last_msg_ms_ail;
+            name = "Aileron";
+            break;
+        case SRV_Channel::k_elevator:
+            last_msg = &last_msg_ms_ele;
+            name = "Elevator";
+            break;
+        case SRV_Channel::k_rudder:
+            last_msg = &last_msg_ms_rud;
+            name = "Rudder";
+            break;
+        default:
+            break;
+        }
+
+        // 若非三大舵面，则不提示
+        if (last_msg && name) {
+            // 漂移开始时立即提示，之后每秒更新一次当前故障大小。
+            if (drift_started || now - *last_msg >= 1000) {
+                *last_msg = now;
+
+                if (op_type == SERVO_OP_DRIFT) {
+                    const int32_t applied_offset =
+                        static_cast<int32_t>(new_pwm) - static_cast<int32_t>(pwm);
+                    gcs().send_text(MAV_SEVERITY_ALERT,
+                                    "%s drift=%ld us applied=%ld us",
+                                    name, static_cast<long>(drift_offset),
+                                    static_cast<long>(applied_offset));
+                } else {
+                    gcs().send_text(MAV_SEVERITY_ALERT,
+                                    "%s fault type %d active PWM (%u->%u)",
+                                    name, op_type,
+                                    (unsigned)pwm, (unsigned)new_pwm);
+                }
+            }
+        }
+    }
+}
+
+void Plane::reset_servo_drift_states()
+{
+    servo_drift_ail = {};
+    servo_drift_ele = {};
+    servo_drift_rud = {};
+}
+
+void Plane::apply_servo_mods()
+{
+    if (!g.servo_mod_enable)
+    {
+        reset_servo_drift_states();
+        return;
+    }
+
+    // 读取 RC 开关
+    int8_t en_ch = g.servo_mod_en_ch;
+    
+    if (en_ch > 0) {
+        RC_Channel *sw = RC_Channels::rc_channel(en_ch - 1);
+        if (sw == nullptr) {
+            reset_servo_drift_states();
+            return;
+        }
+
+        uint16_t sw_pwm = sw->get_radio_in();
+
+        // 开关关闭 → 不处理任何舵面
+        if (sw_pwm < g.servo_mod_switch_pwm) {
+            reset_servo_drift_states();
+            return;
+        }
+    }
+
+    // 副翼
+    apply_servo_op(SRV_Channel::k_aileron,
+                   g.servo_mod_ail_type,
+                   g.servo_mod_ail_min,
+                   g.servo_mod_ail_max,
+                   g.servo_mod_ail_offset,
+                   g.servo_mod_ail_lock,
+                   g.servo_mod_ail_efficiency,
+                   g.servo_mod_ail_drift,
+                   g.servo_mod_ail_drift_time,
+                   servo_drift_ail);
+
+    // 升降
+    apply_servo_op(SRV_Channel::k_elevator,
+                   g.servo_mod_ele_type,
+                   g.servo_mod_ele_min,
+                   g.servo_mod_ele_max,
+                   g.servo_mod_ele_offset,
+                   g.servo_mod_ele_lock,
+                   g.servo_mod_ele_efficiency,
+                   g.servo_mod_ele_drift,
+                   g.servo_mod_ele_drift_time,
+                   servo_drift_ele);
+
+    // 方向
+    apply_servo_op(SRV_Channel::k_rudder,
+                   g.servo_mod_rud_type,
+                   g.servo_mod_rud_min,
+                   g.servo_mod_rud_max,
+                   g.servo_mod_rud_offset,
+                   g.servo_mod_rud_lock,
+                   g.servo_mod_rud_efficiency,
+                   g.servo_mod_rud_drift,
+                   g.servo_mod_rud_drift_time,
+                   servo_drift_rud);
 }

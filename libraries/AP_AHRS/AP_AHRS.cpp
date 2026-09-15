@@ -39,6 +39,8 @@
 #include <GCS_MAVLink/GCS.h>
 #include <AP_InertialSensor/AP_InertialSensor.h>
 #include <AP_CustomRotations/AP_CustomRotations.h>
+#include <RC_Channel/RC_Channel.h>
+
 #if CONFIG_HAL_BOARD == HAL_BOARD_SITL
 #include <SITL/SITL.h>
 #endif
@@ -193,7 +195,42 @@ const AP_Param::GroupInfo AP_AHRS::var_info[] = {
     // @Bitmask: 0:DisableDCMFallbackFW, 1:DisableDCMFallbackVTOL, 2:DontDisableAirspeedUsingEKF
     // @User: Advanced
     AP_GROUPINFO("OPTIONS",  18, AP_AHRS, _options, 0),
-    
+
+    // 名字不能超过16字符，会link 1 down ,前面已经有 AHRS_
+    // @Param: ROLL_BIAS
+    // @DisplayName: AHRS roll bias injection
+    // @Description: Bias added to final estimated roll angle before AHRS publishes attitude
+    // @Range: -30 30
+    // @Units: deg
+    // @Increment: 0.1
+    // @User: Advanced
+    AP_GROUPINFO("Sen_R_BIAS", 19, AP_AHRS, sen_roll_bias, 0),
+
+    // @Param: PITCH_BIAS
+    // @DisplayName: AHRS pitch bias injection
+    // @Description: Bias added to final estimated pitch angle before AHRS publishes attitude
+    // @Range: -30 30
+    // @Units: deg
+    // @Increment: 0.1
+    // @User: Advanced
+    AP_GROUPINFO("Sen_P_BIAS", 20, AP_AHRS, sen_pitch_bias, 0),
+
+    // @Param: Sensor_CH
+    // @DisplayName: AHRS injection channel
+    // @Description: RC channel number used to enable attitude bias injection
+    // @Range: 0 16
+    // @Increment: 1
+    // @User: Advanced
+    AP_GROUPINFO("Sen_CH", 21, AP_AHRS, sensor_ch, 0),
+
+    // @Param: Sensor_ENABLE
+    // @DisplayName: AHRS injection channel
+    // @Description: RC channel number used to enable attitude bias injection
+    // @Range: 0 16
+    // @Increment: 1
+    // @User: Advanced
+    AP_GROUPINFO("Sen_ENABLE", 22, AP_AHRS, sen_ENABLE, 0),
+
     AP_GROUPEND
 };
 
@@ -671,7 +708,21 @@ void AP_AHRS::update_EKF3(void)
             roll  = eulers.x;
             pitch = eulers.y;
             yaw   = eulers.z;
-
+            
+            const int8_t en_ch = sensor_ch.get();   // 1-based, e.g. 7 means RC7
+            if (en_ch >= 1 && en_ch <= 16) {
+                const uint16_t sw_pwm = RC_Channels::get_radio_in(uint8_t(en_ch - 1));
+                if (sw_pwm > 1500 && sen_ENABLE) {
+                        uint32_t now = AP_HAL::millis();
+                        static uint32_t msg_last;
+                        roll  += radians(sen_roll_bias);
+                        pitch += radians(sen_pitch_bias);   
+                        if (now - msg_last > 1000) {   // 1 秒一次
+                            msg_last = now;
+                            gcs().send_text(MAV_SEVERITY_ALERT,"sensor roll bias: %d, sensor pitch bias: %d",(int)sen_roll_bias.get(),(int)sen_pitch_bias.get());
+                        }
+                }
+            } 
             update_cd_values();
             update_trig();
 
