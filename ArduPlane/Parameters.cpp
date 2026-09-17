@@ -981,6 +981,237 @@ const AP_Param::Info Plane::var_info[] = {
     GOBJECT(quicktune, "QWIK_",  AP_Quicktune),
 #endif
 
+    // @Param: SMOD_ENABLE
+    // @DisplayName: Control surface fault injection enable
+    // @Description: Enables control surface fault injection. Faults are disabled by default.
+    // @Values: 0:Disabled,1:Enabled
+    // @User: Advanced
+    GSCALAR(servo_mod_enable, "SMOD_ENABLE", 0),
+
+    // @Param: SMOD_EN_CH
+    // @DisplayName: Fault injection RC channel
+    // @Description: RC input channel used to activate control surface faults. Zero applies configured faults whenever SMOD_ENABLE is enabled.
+    // @Range: 0 16
+    // @Increment: 1
+    // @User: Advanced
+    GSCALAR(servo_mod_en_ch, "SMOD_EN_CH", 0),
+
+    // @Param: SMOD_SW_PWM
+    // @DisplayName: Fault injection RC threshold
+    // @Description: Control surface faults activate when the selected RC channel is at or above this PWM value.
+    // @Units: PWM
+    // @Range: 800 2200
+    // @Increment: 1
+    // @User: Advanced
+    GSCALAR(servo_mod_switch_pwm, "SMOD_SW_PWM", 1500),
+
+    // @Param: SMOD_AIL_TYPE
+    // @DisplayName: Aileron fault type
+    // @Description: Selects the fault applied to outputs assigned the Aileron function.
+    // @Values: 0:None,1:Limit,2:Offset,3:Lock,4:Efficiency,5:Drift
+    // @User: Advanced
+    GSCALAR(servo_mod_ail_type, "SMOD_AIL_TYPE", 0),
+
+    // @Param: SMOD_AIL_MIN
+    // @DisplayName: Aileron fault minimum
+    // @Description: Minimum aileron PWM for the Limit fault. Zero leaves the normal lower limit unchanged.
+    // @Units: PWM
+    // @Range: 0 2200
+    // @Increment: 1
+    // @User: Advanced
+    GSCALAR(servo_mod_ail_min, "SMOD_AIL_MIN", 0),
+
+    // @Param: SMOD_AIL_MAX
+    // @DisplayName: Aileron fault maximum
+    // @Description: Maximum aileron PWM for the Limit fault. Zero leaves the normal upper limit unchanged.
+    // @Units: PWM
+    // @Range: 0 2200
+    // @Increment: 1
+    // @User: Advanced
+    GSCALAR(servo_mod_ail_max, "SMOD_AIL_MAX", 0),
+
+    // @Param: SMOD_AIL_OFFSET
+    // @DisplayName: Aileron fault offset
+    // @Description: PWM offset added to the normal aileron output for the Offset fault.
+    // @Units: PWM
+    // @Range: -400 400
+    // @Increment: 1
+    // @User: Advanced
+    GSCALAR(servo_mod_ail_offset, "SMOD_AIL_OFFSET", 0),
+
+    // @Param: SMOD_AIL_LOCK
+    // @DisplayName: Aileron fault lock value
+    // @Description: Aileron PWM used for the Lock fault. Zero uses the configured servo trim.
+    // @Units: PWM
+    // @Range: 0 2200
+    // @Increment: 1
+    // @User: Advanced
+    GSCALAR(servo_mod_ail_lock, "SMOD_AIL_LOCK", 1500),
+
+    // @Param: SMOD_AIL_EFF
+    // @DisplayName: Aileron fault efficiency
+    // @Description: Percentage of normal aileron travel retained by the Efficiency fault.
+    // @Units: %
+    // @Range: 0 100
+    // @Increment: 1
+    // @User: Advanced
+    GSCALAR(servo_mod_ail_efficiency, "SMOD_AIL_EFF", 100),
+
+    // @Param: SMOD_AIL_DRIFT
+    // @DisplayName: Aileron fault drift offset
+    // @Description: Final PWM offset reached by the aileron Drift fault.
+    // @Units: PWM
+    // @Range: -400 400
+    // @Increment: 1
+    // @User: Advanced
+    GSCALAR(servo_mod_ail_drift, "SMOD_AIL_DRIFT", 0),
+
+    // @Param: SMOD_AIL_DTIME
+    // @DisplayName: Aileron fault drift time
+    // @Description: Time for the aileron Drift fault to increase linearly from zero to its final offset. Zero applies the final offset immediately.
+    // @Units: s
+    // @Range: 0 3600
+    // @User: Advanced
+    GSCALAR(servo_mod_ail_drift_time, "SMOD_AIL_DTIME", 10.0f),
+
+    // @Param: SMOD_ELE_TYPE
+    // @DisplayName: Elevator fault type
+    // @Description: Selects the fault applied to outputs assigned the Elevator function.
+    // @Values: 0:None,1:Limit,2:Offset,3:Lock,4:Efficiency,5:Drift
+    // @User: Advanced
+    GSCALAR(servo_mod_ele_type, "SMOD_ELE_TYPE", 0),
+
+    // @Param: SMOD_ELE_MIN
+    // @DisplayName: Elevator fault minimum
+    // @Description: Minimum elevator PWM for the Limit fault. Zero leaves the normal lower limit unchanged.
+    // @Units: PWM
+    // @Range: 0 2200
+    // @Increment: 1
+    // @User: Advanced
+    GSCALAR(servo_mod_ele_min, "SMOD_ELE_MIN", 0),
+
+    // @Param: SMOD_ELE_MAX
+    // @DisplayName: Elevator fault maximum
+    // @Description: Maximum elevator PWM for the Limit fault. Zero leaves the normal upper limit unchanged.
+    // @Units: PWM
+    // @Range: 0 2200
+    // @Increment: 1
+    // @User: Advanced
+    GSCALAR(servo_mod_ele_max, "SMOD_ELE_MAX", 0),
+
+    // @Param: SMOD_ELE_OFFSET
+    // @DisplayName: Elevator fault offset
+    // @Description: PWM offset added to the normal elevator output for the Offset fault.
+    // @Units: PWM
+    // @Range: -400 400
+    // @Increment: 1
+    // @User: Advanced
+    GSCALAR(servo_mod_ele_offset, "SMOD_ELE_OFFSET", 0),
+
+    // @Param: SMOD_ELE_LOCK
+    // @DisplayName: Elevator fault lock value
+    // @Description: Elevator PWM used for the Lock fault. Zero uses the configured servo trim.
+    // @Units: PWM
+    // @Range: 0 2200
+    // @Increment: 1
+    // @User: Advanced
+    GSCALAR(servo_mod_ele_lock, "SMOD_ELE_LOCK", 1500),
+
+    // @Param: SMOD_ELE_EFF
+    // @DisplayName: Elevator fault efficiency
+    // @Description: Percentage of normal elevator travel retained by the Efficiency fault.
+    // @Units: %
+    // @Range: 0 100
+    // @Increment: 1
+    // @User: Advanced
+    GSCALAR(servo_mod_ele_efficiency, "SMOD_ELE_EFF", 100),
+
+    // @Param: SMOD_ELE_DRIFT
+    // @DisplayName: Elevator fault drift offset
+    // @Description: Final PWM offset reached by the elevator Drift fault.
+    // @Units: PWM
+    // @Range: -400 400
+    // @Increment: 1
+    // @User: Advanced
+    GSCALAR(servo_mod_ele_drift, "SMOD_ELE_DRIFT", 0),
+
+    // @Param: SMOD_ELE_DTIME
+    // @DisplayName: Elevator fault drift time
+    // @Description: Time for the elevator Drift fault to increase linearly from zero to its final offset. Zero applies the final offset immediately.
+    // @Units: s
+    // @Range: 0 3600
+    // @User: Advanced
+    GSCALAR(servo_mod_ele_drift_time, "SMOD_ELE_DTIME", 10.0f),
+
+    // @Param: SMOD_RUD_TYPE
+    // @DisplayName: Rudder fault type
+    // @Description: Selects the fault applied to outputs assigned the Rudder function.
+    // @Values: 0:None,1:Limit,2:Offset,3:Lock,4:Efficiency,5:Drift
+    // @User: Advanced
+    GSCALAR(servo_mod_rud_type, "SMOD_RUD_TYPE", 0),
+
+    // @Param: SMOD_RUD_MIN
+    // @DisplayName: Rudder fault minimum
+    // @Description: Minimum rudder PWM for the Limit fault. Zero leaves the normal lower limit unchanged.
+    // @Units: PWM
+    // @Range: 0 2200
+    // @Increment: 1
+    // @User: Advanced
+    GSCALAR(servo_mod_rud_min, "SMOD_RUD_MIN", 0),
+
+    // @Param: SMOD_RUD_MAX
+    // @DisplayName: Rudder fault maximum
+    // @Description: Maximum rudder PWM for the Limit fault. Zero leaves the normal upper limit unchanged.
+    // @Units: PWM
+    // @Range: 0 2200
+    // @Increment: 1
+    // @User: Advanced
+    GSCALAR(servo_mod_rud_max, "SMOD_RUD_MAX", 0),
+
+    // @Param: SMOD_RUD_OFFSET
+    // @DisplayName: Rudder fault offset
+    // @Description: PWM offset added to the normal rudder output for the Offset fault.
+    // @Units: PWM
+    // @Range: -400 400
+    // @Increment: 1
+    // @User: Advanced
+    GSCALAR(servo_mod_rud_offset, "SMOD_RUD_OFFSET", 0),
+
+    // @Param: SMOD_RUD_LOCK
+    // @DisplayName: Rudder fault lock value
+    // @Description: Rudder PWM used for the Lock fault. Zero uses the configured servo trim.
+    // @Units: PWM
+    // @Range: 0 2200
+    // @Increment: 1
+    // @User: Advanced
+    GSCALAR(servo_mod_rud_lock, "SMOD_RUD_LOCK", 1500),
+
+    // @Param: SMOD_RUD_EFF
+    // @DisplayName: Rudder fault efficiency
+    // @Description: Percentage of normal rudder travel retained by the Efficiency fault.
+    // @Units: %
+    // @Range: 0 100
+    // @Increment: 1
+    // @User: Advanced
+    GSCALAR(servo_mod_rud_efficiency, "SMOD_RUD_EFF", 100),
+
+    // @Param: SMOD_RUD_DRIFT
+    // @DisplayName: Rudder fault drift offset
+    // @Description: Final PWM offset reached by the rudder Drift fault.
+    // @Units: PWM
+    // @Range: -400 400
+    // @Increment: 1
+    // @User: Advanced
+    GSCALAR(servo_mod_rud_drift, "SMOD_RUD_DRIFT", 0),
+
+    // @Param: SMOD_RUD_DTIME
+    // @DisplayName: Rudder fault drift time
+    // @Description: Time for the rudder Drift fault to increase linearly from zero to its final offset. Zero applies the final offset immediately.
+    // @Units: s
+    // @Range: 0 3600
+    // @User: Advanced
+    GSCALAR(servo_mod_rud_drift_time, "SMOD_RUD_DTIME", 10.0f),
+
 #if HAL_GCS_ENABLED
     // @Group: MAV
     // @Path: ../libraries/GCS_MAVLink/GCS.cpp

@@ -771,6 +771,10 @@ private:
     AP_Float _origin_lat;
     AP_Float _origin_lon;
     AP_Float _origin_alt;
+    AP_Int16 sen_roll_bias;
+    AP_Int16 sen_pitch_bias;
+    AP_Int8 sensor_channel;
+    AP_Int8 sensor_fault_enable;
 
     EKFType active_EKF_type(void) const { return state.active_EKF; }
 

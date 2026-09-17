@@ -1188,6 +1188,37 @@ private:
     void flaperon_update();
     void indicate_waiting_for_rud_neutral_to_takeoff(void);
 
+    enum ServoFaultType : int8_t {
+        SERVO_FAULT_NONE = 0,
+        SERVO_FAULT_LIMIT = 1,
+        SERVO_FAULT_OFFSET = 2,
+        SERVO_FAULT_LOCK = 3,
+        SERVO_FAULT_EFFICIENCY = 4,
+        SERVO_FAULT_DRIFT = 5,
+    };
+
+    struct ServoDriftState {
+        uint64_t start_ms;
+        bool active;
+    };
+
+    ServoDriftState servo_drift_ail {};
+    ServoDriftState servo_drift_ele {};
+    ServoDriftState servo_drift_rud {};
+
+    void apply_servo_fault(SRV_Channel::Function function,
+                           int8_t fault_type,
+                           int16_t min_pwm,
+                           int16_t max_pwm,
+                           int16_t offset_pwm,
+                           int16_t lock_pwm,
+                           int16_t efficiency_pct,
+                           int16_t drift_pwm,
+                           float drift_time_s,
+                           ServoDriftState &drift_state);
+    void reset_servo_drift_states();
+    void apply_servo_faults();
+
     // is_flying.cpp
     void update_is_flying_5Hz(void);
     void crash_detection_update(void);

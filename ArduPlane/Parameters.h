@@ -371,6 +371,36 @@ public:
         k_param_mode_autoland,
         k_param__gcs,
 
+        // Fault injection parameters. Keep these after the ArduPilot-4.7
+        // parameter block so existing parameter keys remain unchanged.
+        k_param_servo_mod_enable,
+        k_param_servo_mod_en_ch,
+        k_param_servo_mod_switch_pwm,
+        k_param_servo_mod_ail_type,
+        k_param_servo_mod_ail_min,
+        k_param_servo_mod_ail_max,
+        k_param_servo_mod_ail_offset,
+        k_param_servo_mod_ail_lock,
+        k_param_servo_mod_ail_efficiency,
+        k_param_servo_mod_ele_type,
+        k_param_servo_mod_ele_min,
+        k_param_servo_mod_ele_max,
+        k_param_servo_mod_ele_offset,
+        k_param_servo_mod_ele_lock,
+        k_param_servo_mod_ele_efficiency,
+        k_param_servo_mod_rud_type,
+        k_param_servo_mod_rud_min,
+        k_param_servo_mod_rud_max,
+        k_param_servo_mod_rud_offset,
+        k_param_servo_mod_rud_lock,
+        k_param_servo_mod_rud_efficiency,
+        k_param_servo_mod_ail_drift,
+        k_param_servo_mod_ail_drift_time,
+        k_param_servo_mod_ele_drift,
+        k_param_servo_mod_ele_drift_time,
+        k_param_servo_mod_rud_drift,
+        k_param_servo_mod_rud_drift_time,
+
     };
 
     AP_Int16 format_version;
@@ -378,6 +408,38 @@ public:
     AP_Enum<RtlAutoland> rtl_autoland;
 
     AP_Int8  crash_accel_threshold;
+
+    // Control-surface fault injection
+    AP_Int8  servo_mod_enable;
+    AP_Int8  servo_mod_en_ch;
+    AP_Int16 servo_mod_switch_pwm;
+
+    AP_Int8  servo_mod_ail_type;
+    AP_Int16 servo_mod_ail_min;
+    AP_Int16 servo_mod_ail_max;
+    AP_Int16 servo_mod_ail_offset;
+    AP_Int16 servo_mod_ail_lock;
+    AP_Int16 servo_mod_ail_efficiency;
+    AP_Int16 servo_mod_ail_drift;
+    AP_Float servo_mod_ail_drift_time;
+
+    AP_Int8  servo_mod_ele_type;
+    AP_Int16 servo_mod_ele_min;
+    AP_Int16 servo_mod_ele_max;
+    AP_Int16 servo_mod_ele_offset;
+    AP_Int16 servo_mod_ele_lock;
+    AP_Int16 servo_mod_ele_efficiency;
+    AP_Int16 servo_mod_ele_drift;
+    AP_Float servo_mod_ele_drift_time;
+
+    AP_Int8  servo_mod_rud_type;
+    AP_Int16 servo_mod_rud_min;
+    AP_Int16 servo_mod_rud_max;
+    AP_Int16 servo_mod_rud_offset;
+    AP_Int16 servo_mod_rud_lock;
+    AP_Int16 servo_mod_rud_efficiency;
+    AP_Int16 servo_mod_rud_drift;
+    AP_Float servo_mod_rud_drift_time;
 
     // Feed-forward gains
     //

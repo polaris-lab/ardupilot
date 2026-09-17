@@ -1054,6 +1054,8 @@ void Plane::servos_output(void)
 
     SRV_Channels::calc_pwm();
 
+    apply_servo_faults();
+
     SRV_Channels::output_ch_all();
 
     srv.push();
@@ -1154,4 +1156,208 @@ void Plane::servos_auto_trim(void)
         g2.servo_channels.save_trim();
     }
     
+}
+
+void Plane::apply_servo_fault(SRV_Channel::Function function,
+                              int8_t fault_type,
+                              int16_t min_pwm,
+                              int16_t max_pwm,
+                              int16_t offset_pwm,
+                              int16_t lock_pwm,
+                              int16_t efficiency_pct,
+                              int16_t drift_pwm,
+                              float drift_time_s,
+                              ServoDriftState &drift_state)
+{
+    if (fault_type != SERVO_FAULT_DRIFT) {
+        drift_state = {};
+    }
+
+    if (fault_type == SERVO_FAULT_NONE) {
+        return;
+    }
+
+    uint16_t pwm;
+    if (!SRV_Channels::get_output_pwm(function, pwm)) {
+        drift_state = {};
+        return;
+    }
+
+    SRV_Channel *channel = SRV_Channels::get_channel_for(function);
+    if (channel == nullptr) {
+        drift_state = {};
+        return;
+    }
+
+    const uint16_t output_min = channel->get_output_min();
+    const uint16_t output_max = channel->get_output_max();
+    const uint16_t output_trim = channel->get_trim();
+    uint16_t new_pwm = pwm;
+    int32_t drift_offset = 0;
+    bool drift_started = false;
+
+    switch (fault_type) {
+    case SERVO_FAULT_LIMIT:
+        if (min_pwm > 0) {
+            new_pwm = MAX(new_pwm, constrain_int16(min_pwm, output_min, output_max));
+        }
+        if (max_pwm > 0) {
+            new_pwm = MIN(new_pwm, constrain_int16(max_pwm, output_min, output_max));
+        }
+        break;
+
+    case SERVO_FAULT_OFFSET: {
+        const int32_t offset_output = static_cast<int32_t>(new_pwm) + offset_pwm;
+        new_pwm = constrain_int32(offset_output, output_min, output_max);
+        break;
+    }
+
+    case SERVO_FAULT_LOCK: {
+        const int32_t requested_pwm = lock_pwm == 0 ? output_trim : lock_pwm;
+        new_pwm = constrain_int32(requested_pwm, output_min, output_max);
+        break;
+    }
+
+    case SERVO_FAULT_EFFICIENCY: {
+        const int16_t efficiency = constrain_int16(efficiency_pct, 0, 100);
+        const int32_t travel = static_cast<int32_t>(new_pwm) - output_trim;
+        const int32_t reduced_output = output_trim + travel * efficiency / 100;
+        new_pwm = constrain_int32(reduced_output, output_min, output_max);
+        break;
+    }
+
+    case SERVO_FAULT_DRIFT: {
+        if (!isfinite(drift_time_s) || drift_time_s < 0.0f) {
+            drift_state = {};
+            return;
+        }
+
+        const int16_t target_offset = constrain_int16(drift_pwm, -400, 400);
+        const float duration_s = constrain_float(drift_time_s, 0.0f, 3600.0f);
+        const uint64_t now_ms = AP_HAL::millis64();
+
+        if (!drift_state.active) {
+            drift_state.start_ms = now_ms;
+            drift_state.active = true;
+            drift_started = true;
+        }
+
+        float progress = 1.0f;
+        if (duration_s > 0.0f) {
+            const float elapsed_s = static_cast<float>(now_ms - drift_state.start_ms) * 0.001f;
+            progress = constrain_float(elapsed_s / duration_s, 0.0f, 1.0f);
+        }
+        drift_offset = static_cast<int32_t>(target_offset * progress);
+        const int32_t drifted_output = static_cast<int32_t>(new_pwm) + drift_offset;
+        new_pwm = constrain_int32(drifted_output, output_min, output_max);
+        break;
+    }
+
+    default:
+        return;
+    }
+
+    SRV_Channels::set_output_pwm(function, new_pwm);
+
+    if (new_pwm == pwm && fault_type != SERVO_FAULT_DRIFT) {
+        return;
+    }
+
+    static uint32_t last_aileron_message_ms;
+    static uint32_t last_elevator_message_ms;
+    static uint32_t last_rudder_message_ms;
+    uint32_t *last_message_ms = nullptr;
+    const char *surface_name = nullptr;
+
+    switch (function) {
+    case SRV_Channel::k_aileron:
+        last_message_ms = &last_aileron_message_ms;
+        surface_name = "Aileron";
+        break;
+    case SRV_Channel::k_elevator:
+        last_message_ms = &last_elevator_message_ms;
+        surface_name = "Elevator";
+        break;
+    case SRV_Channel::k_rudder:
+        last_message_ms = &last_rudder_message_ms;
+        surface_name = "Rudder";
+        break;
+    default:
+        return;
+    }
+
+    const uint32_t now_ms = AP_HAL::millis();
+    if (!drift_started && now_ms - *last_message_ms < 1000) {
+        return;
+    }
+    *last_message_ms = now_ms;
+
+    if (fault_type == SERVO_FAULT_DRIFT) {
+        const int32_t applied_offset = static_cast<int32_t>(new_pwm) - pwm;
+        GCS_SEND_TEXT(MAV_SEVERITY_ALERT, "%s drift=%ldus applied=%ldus",
+                      surface_name,
+                      static_cast<long>(drift_offset),
+                      static_cast<long>(applied_offset));
+    } else {
+        GCS_SEND_TEXT(MAV_SEVERITY_ALERT, "%s fault %d PWM %u->%u",
+                      surface_name,
+                      static_cast<int>(fault_type),
+                      static_cast<unsigned>(pwm),
+                      static_cast<unsigned>(new_pwm));
+    }
+}
+
+void Plane::reset_servo_drift_states()
+{
+    servo_drift_ail = {};
+    servo_drift_ele = {};
+    servo_drift_rud = {};
+}
+
+void Plane::apply_servo_faults()
+{
+    if (!g.servo_mod_enable) {
+        reset_servo_drift_states();
+        return;
+    }
+
+    const int8_t enable_channel = g.servo_mod_en_ch;
+    if (enable_channel > 0) {
+        RC_Channel *channel = RC_Channels::rc_channel(enable_channel - 1);
+        if (channel == nullptr || channel->get_radio_in() < g.servo_mod_switch_pwm) {
+            reset_servo_drift_states();
+            return;
+        }
+    }
+
+    apply_servo_fault(SRV_Channel::k_aileron,
+                      g.servo_mod_ail_type,
+                      g.servo_mod_ail_min,
+                      g.servo_mod_ail_max,
+                      g.servo_mod_ail_offset,
+                      g.servo_mod_ail_lock,
+                      g.servo_mod_ail_efficiency,
+                      g.servo_mod_ail_drift,
+                      g.servo_mod_ail_drift_time,
+                      servo_drift_ail);
+    apply_servo_fault(SRV_Channel::k_elevator,
+                      g.servo_mod_ele_type,
+                      g.servo_mod_ele_min,
+                      g.servo_mod_ele_max,
+                      g.servo_mod_ele_offset,
+                      g.servo_mod_ele_lock,
+                      g.servo_mod_ele_efficiency,
+                      g.servo_mod_ele_drift,
+                      g.servo_mod_ele_drift_time,
+                      servo_drift_ele);
+    apply_servo_fault(SRV_Channel::k_rudder,
+                      g.servo_mod_rud_type,
+                      g.servo_mod_rud_min,
+                      g.servo_mod_rud_max,
+                      g.servo_mod_rud_offset,
+                      g.servo_mod_rud_lock,
+                      g.servo_mod_rud_efficiency,
+                      g.servo_mod_rud_drift,
+                      g.servo_mod_rud_drift_time,
+                      servo_drift_rud);
 }

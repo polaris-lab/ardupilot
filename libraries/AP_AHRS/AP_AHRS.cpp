@@ -39,6 +39,10 @@
 #include <GCS_MAVLink/GCS.h>
 #include <AP_InertialSensor/AP_InertialSensor.h>
 #include <AP_CustomRotations/AP_CustomRotations.h>
+#include <RC_Channel/RC_Channel_config.h>
+#if AP_RC_CHANNEL_ENABLED
+#include <RC_Channel/RC_Channel.h>
+#endif
 
 #include <AP_Mission/AP_Mission_config.h>
 #if AP_MISSION_ENABLED
@@ -233,6 +237,39 @@ const AP_Param::GroupInfo AP_AHRS::var_info[] = {
     // @Range: -200 5000
     // @User: Advanced
     AP_GROUPINFO("ORIGIN_ALT", 21, AP_AHRS, _origin_alt, 0),
+
+    // @Param: SEN_R_BIAS
+    // @DisplayName: AHRS roll fault bias
+    // @Description: Roll angle bias applied after the EKF3 attitude estimate when AHRS_SEN_ENABLE is enabled and its RC switch is active.
+    // @Units: deg
+    // @Range: -30 30
+    // @Increment: 1
+    // @User: Advanced
+    AP_GROUPINFO("SEN_R_BIAS", 22, AP_AHRS, sen_roll_bias, 0),
+
+    // @Param: SEN_P_BIAS
+    // @DisplayName: AHRS pitch fault bias
+    // @Description: Pitch angle bias applied after the EKF3 attitude estimate when AHRS_SEN_ENABLE is enabled and its RC switch is active.
+    // @Units: deg
+    // @Range: -30 30
+    // @Increment: 1
+    // @User: Advanced
+    AP_GROUPINFO("SEN_P_BIAS", 23, AP_AHRS, sen_pitch_bias, 0),
+
+    // @Param: SEN_CH
+    // @DisplayName: AHRS fault injection RC channel
+    // @Description: RC input channel used to activate roll and pitch attitude bias injection. A valid channel from 1 to 16 is required.
+    // @Range: 0 16
+    // @Increment: 1
+    // @User: Advanced
+    AP_GROUPINFO("SEN_CH", 24, AP_AHRS, sensor_channel, 0),
+
+    // @Param: SEN_ENABLE
+    // @DisplayName: AHRS fault injection enable
+    // @Description: Enables roll and pitch attitude bias injection when the selected RC channel is above 1500 PWM.
+    // @Values: 0:Disabled,1:Enabled
+    // @User: Advanced
+    AP_GROUPINFO("SEN_ENABLE", 25, AP_AHRS, sensor_fault_enable, 0),
 
     AP_GROUPEND
 };
@@ -759,6 +796,25 @@ void AP_AHRS::update_EKF3(void)
             roll  = eulers.x;
             pitch = eulers.y;
             yaw   = eulers.z;
+
+#if AP_RC_CHANNEL_ENABLED
+            const int8_t channel_number = sensor_channel.get();
+            if (sensor_fault_enable.get() != 0 &&
+                channel_number >= 1 && channel_number <= 16 &&
+                RC_Channels::get_radio_in(channel_number - 1) > 1500) {
+                roll += radians(sen_roll_bias.get());
+                pitch += radians(sen_pitch_bias.get());
+
+                static uint32_t last_fault_message_ms;
+                const uint32_t now_ms = AP_HAL::millis();
+                if (now_ms - last_fault_message_ms >= 1000) {
+                    last_fault_message_ms = now_ms;
+                    GCS_SEND_TEXT(MAV_SEVERITY_ALERT, "AHRS bias roll=%d pitch=%d",
+                                  static_cast<int>(sen_roll_bias.get()),
+                                  static_cast<int>(sen_pitch_bias.get()));
+                }
+            }
+#endif
 
             update_cd_values();
             update_trig();
